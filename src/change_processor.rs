@@ -1,5 +1,6 @@
 use std::{
     fs,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
@@ -182,7 +183,17 @@ impl JobThreadContext {
                 if let Some(instance) = tree.get_instance(id) {
                     if let Some(instigating_source) = &instance.metadata().instigating_source {
                         match instigating_source {
-                            InstigatingSource::Path(path) => fs::remove_file(path).unwrap(),
+                            InstigatingSource::Path(path) => {
+                                let file_path = if path.is_dir() {
+                                    path.join("init.lua")
+                                } else {
+                                    path.to_path_buf()
+                                };
+                                
+                                if let Err(err) = fs::remove_file(&file_path) {
+                                    log::error!("Failed to remove file {:?}: {}", file_path, err);
+                                }
+                            },
                             InstigatingSource::ProjectNode(_, _, _, _) => {
                                 log::warn!(
                                     "Cannot remove instance {:?}, it's from a project file",
@@ -226,7 +237,15 @@ impl JobThreadContext {
                                 match instigating_source {
                                     InstigatingSource::Path(path) => {
                                         if let Some(Variant::String(value)) = changed_value {
-                                            fs::write(path, value).unwrap();
+                                            let file_path = if path.is_dir() {
+                                                path.join("init.lua")
+                                            } else {
+                                                path.to_path_buf()
+                                            };
+                                            
+                                            if let Err(err) = fs::write(&file_path, value) {
+                                                log::error!("Failed to write to file {:?}: {}", file_path, err);
+                                            }
                                         } else {
                                             log::warn!("Cannot change Source to non-string value.");
                                         }
